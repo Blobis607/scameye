@@ -1,0 +1,12 @@
+# Secret keys – NEVER upload these
+.env
+.env.*
+!.env.example
+
+# Tools and system files
+node_modules/
+.vercel/
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/

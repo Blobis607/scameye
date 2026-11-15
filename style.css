@@ -1,0 +1,411 @@
+/* =========================================================
+   ScamEye – style.css
+   Mobile-first: the basic styles are for small phones.
+   Bigger screens get small extras at the bottom.
+   ========================================================= */
+
+/* ---------- 1. Colours (light mode) ----------
+   We keep every colour in one place as a "variable".
+   Dark mode just swaps these values. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --text: #111418;
+  --muted: #444c56;
+  --border: #c3cad4;
+  --primary: #0b57d0;
+  --primary-text: #ffffff;
+  --primary-hover: #0842a0;
+  --focus: #e8710a;
+
+  --scam-bg: #b3261e;      --scam-text: #ffffff;
+  --sus-bg: #f2b100;       --sus-text: #1b1300;
+  --safe-bg: #1b7a35;      --safe-text: #ffffff;
+
+  --mark-bg: #ffe082;
+  --mark-text: #111418;
+  --mark-line: #b3261e;
+
+  --chip-bg: #e7eefc;
+  --chip-text: #0a3a8a;
+  --next-bg: #eef5ff;
+  --error: #b3261e;
+
+  color-scheme: light;
+}
+
+/* Dark colours, used in two cases:
+   (a) the phone is in dark mode and the user hasn't picked "light"
+   (b) the user pressed the theme button and picked "dark" */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1116;
+    --surface: #171b21;
+    --text: #f1f3f5;
+    --muted: #b6bec8;
+    --border: #3b4350;
+    --primary: #8ab4ff;
+    --primary-text: #0a1a33;
+    --primary-hover: #a9c7ff;
+    --focus: #ffb35c;
+    --mark-bg: #ffd54f;
+    --mark-text: #111418;
+    --mark-line: #ff6b60;
+    --chip-bg: #1f2a3d;
+    --chip-text: #cfe0ff;
+    --next-bg: #1a2433;
+    --error: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1116;
+  --surface: #171b21;
+  --text: #f1f3f5;
+  --muted: #b6bec8;
+  --border: #3b4350;
+  --primary: #8ab4ff;
+  --primary-text: #0a1a33;
+  --primary-hover: #a9c7ff;
+  --focus: #ffb35c;
+  --mark-bg: #ffd54f;
+  --mark-text: #111418;
+  --mark-line: #ff6b60;
+  --chip-bg: #1f2a3d;
+  --chip-text: #cfe0ff;
+  --next-bg: #1a2433;
+  --error: #ff8a80;
+  color-scheme: dark;
+}
+
+/* ---------- 2. Basics ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  /* System fonts: already on the phone, so nothing to download */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.125rem;   /* 18px – big and readable */
+  line-height: 1.55;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main { flex: 1; }
+
+.wrap {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+h1, h2, h3 { line-height: 1.2; margin: 0; }
+p { margin: 0; }
+
+/* A thick, bright outline so keyboard users always see where they are */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+[hidden] { display: none !important; }
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  background: var(--primary);
+  color: var(--primary-text);
+  padding: 10px 16px;
+  border-radius: 8px;
+  z-index: 10;
+}
+.skip-link:focus { top: 12px; }
+
+/* ---------- 3. Header ---------- */
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+  margin-bottom: 18px;
+}
+.header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { width: 44px; height: 44px; color: var(--primary); flex-shrink: 0; }
+h1 { font-size: 1.75rem; letter-spacing: -0.01em; }
+.tagline { color: var(--muted); font-size: 1rem; }
+
+.header-controls { display: flex; gap: 8px; }
+.icon-btn {
+  font: inherit;
+  font-size: 0.95rem;
+  min-height: 44px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ---------- 4. Cards ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  margin-bottom: 18px;
+}
+
+.label-title { font-size: 1.25rem; margin-bottom: 10px; }
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 9.5em;
+  font: inherit;
+  font-size: 1.125rem;   /* 18px stops phones from zooming in */
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  resize: vertical;
+}
+textarea:focus { border-color: var(--primary); }
+
+.hint { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
+.error { color: var(--error); font-weight: 700; margin-top: 6px; min-height: 0; }
+.error:empty { display: none; }
+
+/* ---------- 5. Buttons ---------- */
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 14px;
+  padding: 12px 18px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.15rem;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.btn-primary { background: var(--primary); color: var(--primary-text); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-primary:disabled { opacity: 0.6; cursor: wait; }
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover { border-color: var(--primary); }
+
+/* ---------- 6. Example chips ---------- */
+.examples { margin-top: 20px; }
+.examples-title { font-weight: 700; margin-bottom: 8px; font-size: 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font: inherit;
+  font-size: 0.95rem;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  cursor: pointer;
+  text-align: left;
+}
+.chip:hover { border-color: var(--chip-text); }
+
+/* ---------- 7. Loading line ---------- */
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.dots { display: inline-flex; gap: 5px; }
+.dots span {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: bounce 0.9s infinite ease-in-out;
+}
+.dots span:nth-child(2) { animation-delay: 0.15s; }
+.dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ---------- 8. Result card ---------- */
+.result { padding: 0; overflow: hidden; }
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px;
+  flex-wrap: wrap;
+}
+.banner--scam       { background: var(--scam-bg); color: var(--scam-text); }
+.banner--suspicious { background: var(--sus-bg);  color: var(--sus-text); }
+.banner--safe       { background: var(--safe-bg); color: var(--safe-text); }
+
+.verdict-icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 3px solid currentColor;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.banner-text { flex: 1; min-width: 150px; }
+.banner h2 { font-size: 1.75rem; }
+.banner h2:focus { outline: none; }
+.confidence { font-weight: 600; font-size: 1rem; }
+
+.badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  white-space: nowrap;
+}
+
+.result-section {
+  padding: 18px 16px;
+  border-top: 1px solid var(--border);
+}
+.result-section:first-of-type { border-top: 0; }
+.result-section h3 { font-size: 1.2rem; }
+
+/* The pasted message, shown again */
+.message-view {
+  margin-top: 10px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  white-space: pre-wrap;        /* keep the line breaks from the message */
+  overflow-wrap: anywhere;      /* long links won't break the layout */
+}
+
+/* A highlighted red flag. It is a <mark> that behaves like a button. */
+.flag {
+  background: var(--mark-bg);
+  color: var(--mark-text);
+  border-bottom: 3px solid var(--mark-line);
+  border-radius: 3px;
+  padding: 0 2px;
+  cursor: pointer;
+  font-weight: 600;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.flag.is-active { outline: 3px solid var(--mark-line); outline-offset: 1px; }
+
+.flag-detail {
+  margin-top: 10px;
+  padding: 0 12px;
+  border-left: 4px solid var(--mark-line);
+}
+.flag-detail:empty { display: none; }
+.flag-detail strong { display: block; }
+
+.flag-list-box { margin-top: 12px; }
+.flag-list-box summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.flag-list { margin: 4px 0 0; padding-left: 1.4em; }
+.flag-list li { margin-bottom: 8px; }
+.flag-list q { font-weight: 700; }
+
+/* Explanation + language toggle */
+.explain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.lang-toggle {
+  display: inline-flex;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.lang-btn {
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 6px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.lang-btn[aria-pressed="true"] { background: var(--primary); color: var(--primary-text); }
+
+.explanation { font-size: 1.15rem; }
+
+/* What to do next */
+.next-box { background: var(--next-bg); }
+.next-steps { margin: 10px 0 0; padding-left: 1.3em; }
+.next-steps li { margin-bottom: 8px; }
+
+.actions { padding: 2px 16px 0; }
+.copy-status { padding: 10px 16px 18px; font-weight: 600; min-height: 1.5em; }
+
+/* ---------- 9. Footer ---------- */
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 18px 0 28px;
+  margin-top: 8px;
+}
+
+/* ---------- 10. Bigger screens ---------- */
+@media (min-width: 600px) {
+  .card { padding: 24px; }
+  .result { padding: 0; }
+  .banner, .result-section { padding: 20px 24px; }
+  .actions { display: flex; gap: 12px; padding: 4px 24px 0; }
+  .actions .btn { flex: 1; }
+  .copy-status { padding: 10px 24px 20px; }
+  #check-btn { width: auto; min-width: 240px; }
+}
+
+/* People who turn off animations on their phone */
+@media (prefers-reduced-motion: reduce) {
+  .dots span { animation: none; opacity: 1; }
+}

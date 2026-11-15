@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScamEye – Check a strange message</title>
+  <meta name="description" content="Paste a suspicious SMS or WhatsApp message and ScamEye tells you if it looks like a scam. Free, no sign-up, nothing stored.">
+  <meta name="theme-color" content="#0b57d0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Skip link: lets keyboard users jump straight to the paste box -->
+  <a class="skip-link" href="#message">Skip to the message box</a>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M4 24 C12 10, 36 10, 44 24 C36 38, 12 38, 4 24 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
+          <circle cx="24" cy="24" r="7.5" fill="currentColor"/>
+          <circle cx="26.5" cy="21.5" r="2.4" style="fill: var(--surface)"/>
+        </svg>
+        <div>
+          <h1>ScamEye</h1>
+          <p class="tagline">Got a strange message? Check it before you click.</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <!-- Sound on/off for the recorded voice clip -->
+        <button type="button" id="mute-btn" class="icon-btn">🔊 Sound on</button>
+        <!-- Light / dark mode -->
+        <button type="button" id="theme-btn" class="icon-btn">🌙 Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== MAIN AREA ===== -->
+  <main class="wrap">
+
+    <!-- 1. Paste box -->
+    <section id="checker" class="card" aria-labelledby="checker-title">
+      <h2 id="checker-title" class="label-title">
+        <label for="message">Paste the message here</label>
+      </h2>
+      <textarea id="message" rows="7" autocomplete="off" spellcheck="false"
+        placeholder="Copy the SMS or WhatsApp message you received and paste it here…"
+        aria-describedby="message-hint input-error"></textarea>
+      <p id="message-hint" class="hint">We don't save your message. It stays on your phone.</p>
+      <p id="input-error" class="error" role="alert"></p>
+      <button type="button" id="check-btn" class="btn btn-primary">Check message</button>
+
+      <!-- 2. Example chips (filled in by app.js from examples.js) -->
+      <div class="examples">
+        <p class="examples-title" id="examples-title">No message? Try an example:</p>
+        <div id="chips" class="chips" role="group" aria-labelledby="examples-title"></div>
+      </div>
+    </section>
+
+    <!-- 3. Loading line (shown for 1 second) -->
+    <p id="loading" class="loading" role="status" hidden>
+      <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+      Reading the message like a careful friend…
+    </p>
+
+    <!-- 4. Result card (hidden until a check is done) -->
+    <section id="result" class="card result" aria-labelledby="verdict-title" hidden>
+
+      <!-- Coloured banner: red / amber / green -->
+      <div id="banner" class="banner">
+        <span id="verdict-icon" class="verdict-icon" aria-hidden="true">!</span>
+        <div class="banner-text">
+          <h2 id="verdict-title" tabindex="-1">Likely scam</h2>
+          <p id="confidence" class="confidence">Confidence: High</p>
+        </div>
+        <span id="source-badge" class="badge">Basic check</span>
+      </div>
+
+      <!-- The message again, with red flags highlighted -->
+      <div class="result-section">
+        <h3>The message</h3>
+        <p id="highlight-hint" class="hint">Tap a highlighted part to see why it's a red flag.</p>
+        <div id="message-view" class="message-view"></div>
+        <p id="flag-detail" class="flag-detail" aria-live="polite"></p>
+
+        <details class="flag-list-box">
+          <summary>See all red flags (<span id="flag-count">0</span>)</summary>
+          <ol id="flag-list" class="flag-list"></ol>
+        </details>
+      </div>
+
+      <!-- Plain explanation, English or Pidgin -->
+      <div class="result-section">
+        <div class="explain-head">
+          <h3>Why?</h3>
+          <div class="lang-toggle" role="group" aria-label="Explanation language">
+            <button type="button" id="lang-en" class="lang-btn" aria-pressed="true">English</button>
+            <button type="button" id="lang-pcm" class="lang-btn" aria-pressed="false">Pidgin</button>
+          </div>
+        </div>
+        <p id="explanation" class="explanation"></p>
+        <button type="button" id="read-aloud" class="btn btn-secondary">🗣️ Read explanation aloud</button>
+      </div>
+
+      <!-- What to do next -->
+      <div class="result-section next-box">
+        <h3>What to do next</h3>
+        <ul id="next-steps" class="next-steps"></ul>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button type="button" id="copy-btn" class="btn btn-primary">📋 Copy warning</button>
+        <button type="button" id="again-btn" class="btn btn-secondary">Check another message</button>
+      </div>
+      <p id="copy-status" class="copy-status" role="status"></p>
+    </section>
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>ScamEye gives advice, not a guarantee. When in doubt, call your bank on the number on your card. Never share your PIN, OTP or BVN.</p>
+    </div>
+  </footer>
+
+  <!-- Order matters: examples and rules first, then the app that uses them -->
+  <script src="examples.js"></script>
+  <script src="rules.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
