@@ -19,9 +19,23 @@
    No npm packages: we use the built-in fetch.
    ========================================================= */
 
-const DEFAULT_MODEL = "gemini-3.8-flash";   // stable free-tier Flash model (Google AI docs, Nov 2026)
+// Fastest free-tier model that can turn "thinking" down to "minimal" (Google AI docs, Nov 2026).
+// (gemini-3.8-flash can only go down to "low", which was too slow.)
+const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 const MAX_LENGTH = 2000;                     // characters
-const AI_TIMEOUT_MS = 12000;                 // give up on the AI after 12 seconds
+const AI_TIMEOUT_MS = 20000;                 // give up on the AI after 20 seconds
+const MAX_OUTPUT_TOKENS = 1024;              // includes any "thinking" tokens
+
+/* "Thinking" makes the AI slower. Use the lowest setting each model allows –
+   sending a setting a model doesn't support causes an error. */
+function thinkingConfigFor(model) {
+  // These models support "minimal" (almost no thinking)
+  if (/^gemini-(3\.5-flash-lite|3\.6-flash|3\.1-flash-lite)/.test(model)) return { thinkingLevel: "minimal" };
+  // Other Gemini 3 models (e.g. gemini-3.8-flash): lowest is "low"
+  if (/^gemini-3/.test(model)) return { thinkingLevel: "low" };
+  // Older models (2.5 and before): don't send a thinking setting at all
+  return null;
+}
 
 /* ---------- 1. Instructions for the AI ---------- */
 const SYSTEM_PROMPT = `
@@ -107,10 +121,13 @@ async function askGemini(message, apiKey, model) {
     }],
     generationConfig: {
       temperature: 0.2,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
       responseMimeType: "application/json",
       responseSchema: RESPONSE_SCHEMA
     }
   };
+  const thinking = thinkingConfigFor(model);
+  if (thinking) body.generationConfig.thinkingConfig = thinking;
 
   let res;
   try {
@@ -127,17 +144,23 @@ async function askGemini(message, apiKey, model) {
     throw new CheckError(502, "Could not reach the AI.");
   }
 
-  if (res.status === 429) throw new CheckError(503, "The AI is busy right now (free limit reached).");
   if (!res.ok) {
-    // Log only the status number – never the message or the key
-    console.error("Gemini error status:", res.status);
+    // Log ONLY the status code and Google's error text – never the user's message or the key.
+    const errData = await res.json().catch(function () { return null; });
+    const googleMsg = errData && errData.error && typeof errData.error.message === "string"
+      ? errData.error.message.slice(0, 300) : "(no error text)";
+    console.error("Gemini error " + res.status + " (model " + model + "): " + googleMsg);
+    if (res.status === 429) throw new CheckError(503, "The AI is busy right now (free limit reached).");
     throw new CheckError(502, "The AI could not check this message.");
   }
 
   const data = await res.json().catch(function () { return null; });
-  const parts = data && data.candidates && data.candidates[0] &&
-                data.candidates[0].content && data.candidates[0].content.parts;
-  if (!Array.isArray(parts)) throw new CheckError(502, "The AI gave an empty answer.");
+  const candidate = data && data.candidates && data.candidates[0];
+  const parts = candidate && candidate.content && candidate.content.parts;
+  if (!Array.isArray(parts)) {
+    console.error("Gemini gave no answer. finishReason: " + ((candidate && candidate.finishReason) || "none"));
+    throw new CheckError(502, "The AI gave an empty answer.");
+  }
 
   // Join the text parts (skip any "thinking" parts some models add)
   const text = parts.filter(function (p) { return typeof p.text === "string" && !p.thought; })
@@ -146,6 +169,8 @@ async function askGemini(message, apiKey, model) {
   try {
     return JSON.parse(text);
   } catch (e) {
+    // finishReason "MAX_TOKENS" means the answer was cut off by maxOutputTokens
+    console.error("Gemini answer was not valid JSON. finishReason: " + (candidate.finishReason || "none"));
     throw new CheckError(502, "The AI's answer was not valid JSON.");
   }
 }
