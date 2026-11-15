@@ -76,7 +76,7 @@
      Both give back the SAME result shape.
      No API key is ever in this file – it stays on the server. */
   const MAX_LENGTH = 2000;          // same limit as the server
-  const AI_WAIT_MS = 15000;         // server gives up after 12s; we wait a little longer
+  const AI_WAIT_MS = 23000;         // server gives up after 20s; we wait a little longer
 
   // An error we should show to the user (like "message too long")
   function UserError(message) { this.message = message; }

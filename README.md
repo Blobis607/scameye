@@ -12,13 +12,13 @@ Fake bank alerts, "update your BVN" texts, fake promo wins, job offers that ask 
 
 1. You paste a message and tap **Check message**.
 2. The page sends the message to a small server function (`api/check.js`) running on Vercel.
-3. That function asks **Google Gemini** (default model `gemini-3.8-flash`) to check it, using instructions written for common Nigerian scams. A response schema forces the AI to answer in a fixed format.
+3. That function asks **Google Gemini** (default model `gemini-3.5-flash-lite`, the fastest free model, with "thinking" set to minimal) to check it, using instructions written for common Nigerian scams. A response schema forces the AI to answer in a fixed format.
 4. The server **double-checks the answer** before sending it back. It removes any red flag whose words aren't really in the message, and it makes sure a safe next step is always included.
 5. The page shows the result with an **"AI check"** badge.
 
 ### Automatic backup
 
-If the AI is slow (over 12 seconds), out of free quota, or gives a broken answer, the page **automatically uses the built-in keyword checker** (`rules.js`) instead. That result shows a **"Basic check"** badge. Users always get an answer.
+If the AI is slow (over 20 seconds), out of free quota, or gives a broken answer, the page **automatically uses the built-in keyword checker** (`rules.js`) instead. That result shows a **"Basic check"** badge. Users always get an answer.
 
 When you open `index.html` straight from your computer (double-click), there is no server, so ScamEye always uses the basic check.
 
