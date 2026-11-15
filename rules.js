@@ -88,6 +88,14 @@
       pattern: /\b((don'?t|do\s+not)\s+tell\s+(anyone|anybody)|keep\s+(this|it)\s+(secret|private|confidential))\b/gi,
       reason: "Tells you to keep it secret, so nobody can warn you." },
 
+    // "Mummy, it's me, I'm using my friend's phone" (pretending to be family)
+    { category: "impersonation", weight: 3,
+      pattern: /\b(my\s+friend'?s?\s+phone|friend\s+phone|(this|dis)\s+is\s+my\s+new\s+number|my\s+(phone|own)\s+(fall|fell|spoil|spoilt|got\s+spoilt|was\s+stolen|don\s+spoil)|i\s+go\s+explain\s+later|(i\s+)?will\s+explain\s+later)\b/gi,
+      reason: "Says they're using a different phone. Scammers pretend to be family this way." },
+    { category: "impersonation", weight: 2,
+      pattern: /\bsend\s+\S+\s+to\s+(this|dis)\s+(number|account)\b/gi,
+      reason: "Asks you to send money to a new number or account." },
+
     // Emotional story
     { category: "emotional", weight: 1,
       pattern: /\b(hospital|surgery|accident|emergency)\b/gi,
@@ -170,6 +178,11 @@
       pcm: "Dem talk say make you no tell anybody, so nobody go fit warn you.",
       step: "Tell someone you trust before you do anything."
     },
+    impersonation: {
+      en: "It claims to be a family member using someone else's phone and asks for money. Scammers do this to make you send money without checking.",
+      pcm: "Dem dey pretend say na your pikin or family wey dey use another person phone, then dem ask for money. Na so scammers dey take collect money quick quick.",
+      step: "Call your family member on their OLD number, or ask a question only they can answer, before you send anything."
+    },
     emotional: {
       en: "It uses a sad or scary story to make you act with your heart, not your head.",
       pcm: "Dem dey use sad story pull your heart make you act quick without thinking.",
@@ -178,7 +191,7 @@
   };
 
   // Most serious first: the explanation talks about these first
-  const ORDER = ["sensitive", "sendback", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
+  const ORDER = ["sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
 
   /* ---------- 4. The main check ---------- */
   function check(message) {

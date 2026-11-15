@@ -71,19 +71,55 @@
   });
 
   /* ---------- 3. Checking a message ----------
-     WEEK 1: we use the built-in keyword checker (rules.js).
-     WEEK 2: we will ask the AI through api/check.js instead.
-     Both give back the SAME result shape. */
+     1st choice: ask the AI (api/check.js on the server).
+     Backup:     if the AI fails or is slow, use rules.js.
+     Both give back the SAME result shape.
+     No API key is ever in this file – it stays on the server. */
+  const MAX_LENGTH = 2000;          // same limit as the server
+  const AI_WAIT_MS = 15000;         // server gives up after 12s; we wait a little longer
+
+  // An error we should show to the user (like "message too long")
+  function UserError(message) { this.message = message; }
+
+  function looksLikeResult(r) {
+    return r && ["scam", "suspicious", "safe"].indexOf(r.verdict) !== -1 &&
+           typeof r.explanation_en === "string" && Array.isArray(r.red_flags) && Array.isArray(r.next_steps);
+  }
+
+  async function askAI(text) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? setTimeout(function () { controller.abort(); }, AI_WAIT_MS) : null;
+    try {
+      const res = await fetch("/api/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+        signal: controller ? controller.signal : undefined
+      });
+      if (res.status === 400) {
+        // The server says something is wrong with the message itself
+        const info = await res.json().catch(function () { return {}; });
+        throw new UserError(info.error || "Please check the message and try again.");
+      }
+      if (!res.ok) throw new Error("AI not available: " + res.status);
+      const result = await res.json();
+      if (!looksLikeResult(result)) throw new Error("AI answer had the wrong shape");
+      result.source = "ai";
+      return result;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   async function checkMessage(text) {
-    // Week 2 will look roughly like this (no API keys here – they stay on the server):
-    // const res = await fetch("/api/check", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ message: text })
-    // });
-    // if (res.ok) return await res.json();
-    // ...and if the AI fails, fall back to the basic check below.
-    return window.ScamEyeRules.check(text);
+    // Opened by double-clicking index.html? There's no server, so go straight to the basic check.
+    if (location.protocol === "file:") return window.ScamEyeRules.check(text);
+    try {
+      return await askAI(text);
+    } catch (err) {
+      if (err instanceof UserError) throw err;
+      return window.ScamEyeRules.check(text);   // automatic backup
+    }
   }
 
   async function onCheck() {
@@ -93,9 +129,15 @@
       els.message.focus();
       return;
     }
+    if (text.length > MAX_LENGTH) {
+      showError("That message is too long. Please paste up to 2,000 characters (it's " + text.length.toLocaleString() + " now).");
+      els.message.focus();
+      return;
+    }
     showError("");
     stopClip();
     stopSpeaking();
+    unlockVoice();   // must happen during the tap, so the clip can play later
 
     // Show the loading line for 1 second
     els.result.hidden = true;
@@ -109,7 +151,8 @@
     } catch (err) {
       els.loading.hidden = true;
       els.checkBtn.disabled = false;
-      showError("Sorry, something went wrong. Please try again.");
+      showError(err instanceof UserError ? err.message : "Sorry, something went wrong. Please try again.");
+      els.message.focus();
       return;
     }
 
@@ -271,7 +314,10 @@
 
   /* ---------- 6. Voice: my recorded clips ---------- */
   let muted = sessionGet("scameye-muted") === "1";
-  let clip = null;
+  // ONE audio player, reused every time. Phones (especially iPhones) only allow
+  // sound from a player that was first started during a tap – see unlockVoice().
+  const voice = new Audio();
+  let clipToken = 0;   // goes up every time we start/stop, so old clips can't interrupt new ones
 
   function updateMuteBtn() {
     els.muteBtn.textContent = muted ? "🔇 Sound off" : "🔊 Sound on";
@@ -286,36 +332,47 @@
     updateMuteBtn();
   });
 
+  // The AI can take a few seconds. Starting the player silently during the
+  // "Check message" tap "unlocks" it, so it's allowed to speak when the result arrives.
+  function unlockVoice() {
+    if (muted) return;
+    const myToken = clipToken;
+    try {
+      voice.muted = true;
+      voice.src = "audio/scam.mp3";
+      const p = voice.play();
+      const done = function () {
+        if (myToken === clipToken) voice.pause();   // don't stop a real clip that already started
+        voice.muted = false;
+      };
+      if (p && p.then) p.then(done, function () { voice.muted = false; });
+      else done();
+    } catch (e) { voice.muted = false; }
+  }
+
   // Try audio/<verdict>.mp3 first. If it's missing, try .wav. If both are missing, stay quiet.
   const CLIP_TYPES = [".mp3", ".wav"];
 
-  function playVerdictClip(verdict, attempt) {
-    attempt = attempt || 0;
-    if (attempt === 0) stopClip();
-    if (muted || attempt >= CLIP_TYPES.length) return;
-    try {
-      const audio = new Audio("audio/" + verdict + CLIP_TYPES[attempt]);
-      clip = audio;
-      let triedNext = false;
-      function tryNext() {
-        // Only move on if this clip is still the current one (user didn't start a new check)
-        if (triedNext || clip !== audio) return;
-        triedNext = true;
-        playVerdictClip(verdict, attempt + 1);
-      }
-      audio.addEventListener("error", tryNext);  // file missing → try the next type
-      const playing = audio.play();
-      if (playing && playing.catch) {
-        playing.catch(function (err) {
-          // NotAllowedError = the browser blocked sound. Anything else = file problem, try next.
-          if (!err || err.name !== "NotAllowedError") tryNext();
-        });
-      }
-    } catch (e) { /* stay quiet */ }
+  function playVerdictClip(verdict) {
+    stopClip();
+    if (muted) return;
+    const myToken = ++clipToken;
+    let attempt = 0;
+    function tryNext() {
+      if (myToken !== clipToken || attempt >= CLIP_TYPES.length) return;
+      voice.muted = false;
+      voice.src = "audio/" + verdict + CLIP_TYPES[attempt++];
+      const p = voice.play();
+      if (p && p.catch) p.catch(function () { /* blocked or missing: stay quiet */ });
+    }
+    voice.onerror = tryNext;   // file missing → try the next type
+    tryNext();
   }
 
   function stopClip() {
-    if (clip) { try { clip.pause(); } catch (e) {} clip = null; }
+    clipToken++;
+    voice.onerror = null;
+    try { voice.pause(); } catch (e) { /* ignore */ }
   }
 
   /* ---------- 7. Read explanation aloud (phone's own voice) ---------- */

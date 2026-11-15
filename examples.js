@@ -34,6 +34,13 @@ window.SCAMEYE_EXAMPLES = [
       "Please check your alert and send it back urgently, my child is in the hospital. God bless you."
   },
   {
+    // Tricky: no "BVN", no "you have won" – the AI should still catch it
+    label: "📱 “Mummy, na me” (tricky)",
+    text:
+      "Hi mummy, na me. I dey use my friend phone, my own fall inside water. " +
+      "Abeg send 15k to this number, I go explain later."
+  },
+  {
     label: "📦 Delivery text (looks safe)",
     text:
       "SwiftDrop: Hi Ada, your parcel (order SD-48213) is out for delivery today between 12pm and 4pm. " +

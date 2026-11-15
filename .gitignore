@@ -1,6 +1,9 @@
 # Secret keys – NEVER upload these
 .env
+.env.local
+.env.*.local
 .env.*
+# ...except the example file, which has no real key
 !.env.example
 
 # Tools and system files
