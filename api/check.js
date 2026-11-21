@@ -1,6 +1,11 @@
 /* =========================================================
    ScamEye – api/check.js  (Week 2: the AI check)
 
+   NOW THE BACKUP: app.js first tries Firebase AI Logic hybrid
+   inference (on-device Gemini Nano, then cloud Gemini through
+   Firebase). If Firebase isn't set up or fails, it calls this
+   server. If this fails too, it uses rules.js.
+
    This file runs on Vercel's server, NOT in the user's browser.
    That is why the secret API key is safe here: the browser
    never sees it.
@@ -105,6 +110,19 @@ class CheckError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
+const RETRY_DELAY_MS = 1000;          // wait 1 second before retrying a "busy" error
+const MIN_TIME_FOR_RETRY_MS = 3000;   // only retry if at least 3 seconds would be left after waiting
+
+function wait(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+// Log ONLY the status code and Google's error text – never the user's message or the key.
+async function logGeminiError(res, model, note) {
+  const errData = await res.json().catch(function () { return null; });
+  const googleMsg = errData && errData.error && typeof errData.error.message === "string"
+    ? errData.error.message.slice(0, 300) : "(no error text)";
+  console.error("Gemini error " + res.status + " (model " + model + "): " + googleMsg + (note ? " – " + note : ""));
+}
+
 /* ---------- 4. Ask Gemini ---------- */
 async function askGemini(message, apiKey, model) {
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
@@ -129,27 +147,40 @@ async function askGemini(message, apiKey, model) {
   const thinking = thinkingConfigFor(model);
   if (thinking) body.generationConfig.thinkingConfig = thinking;
 
+  // ONE timer for everything (both tries + the wait), so we never go over AI_TIMEOUT_MS.
+  const signal = AbortSignal.timeout(AI_TIMEOUT_MS);
+  const startedAt = Date.now();
+
   let res;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(AI_TIMEOUT_MS)
-    });
-  } catch (err) {
-    if (err && (err.name === "TimeoutError" || err.name === "AbortError")) {
-      throw new CheckError(504, "The AI took too long to answer.");
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify(body),
+        signal: signal
+      });
+    } catch (err) {
+      if (err && (err.name === "TimeoutError" || err.name === "AbortError")) {
+        throw new CheckError(504, "The AI took too long to answer.");
+      }
+      throw new CheckError(502, "Could not reach the AI.");
     }
-    throw new CheckError(502, "Could not reach the AI.");
+
+    // 500 / 503 = Google's server is busy. Wait 1 second and try ONE more time,
+    // but only if there's still enough time left before our limit.
+    const busy = res.status === 500 || res.status === 503;
+    const timeLeft = AI_TIMEOUT_MS - (Date.now() - startedAt);
+    if (busy && attempt === 1 && timeLeft > RETRY_DELAY_MS + MIN_TIME_FOR_RETRY_MS) {
+      await logGeminiError(res, model, "retrying once in 1 second");
+      await wait(RETRY_DELAY_MS);
+      continue;
+    }
+    break;
   }
 
   if (!res.ok) {
-    // Log ONLY the status code and Google's error text – never the user's message or the key.
-    const errData = await res.json().catch(function () { return null; });
-    const googleMsg = errData && errData.error && typeof errData.error.message === "string"
-      ? errData.error.message.slice(0, 300) : "(no error text)";
-    console.error("Gemini error " + res.status + " (model " + model + "): " + googleMsg);
+    await logGeminiError(res, model, "");
     if (res.status === 429) throw new CheckError(503, "The AI is busy right now (free limit reached).");
     throw new CheckError(502, "The AI could not check this message.");
   }
