@@ -47,7 +47,7 @@
       <textarea id="message" rows="7" autocomplete="off" spellcheck="false"
         placeholder="Copy the SMS or WhatsApp message you received and paste it here…"
         aria-describedby="message-hint input-error"></textarea>
-      <p id="message-hint" class="hint">We don't save your message. It stays on your phone.</p>
+      <p id="message-hint" class="hint">We never save your message.</p>
       <p id="input-error" class="error" role="alert"></p>
       <button type="button" id="check-btn" class="btn btn-primary">Check message</button>
 
@@ -56,6 +56,15 @@
         <p class="examples-title" id="examples-title">No message? Try an example:</p>
         <div id="chips" class="chips" role="group" aria-labelledby="examples-title"></div>
       </div>
+
+      <!-- Privacy note: where the message is checked -->
+      <details class="privacy-note">
+        <summary>🔒 Where is my message checked?</summary>
+        <p>On a computer with a recent Google Chrome, ScamEye uses a small AI <strong>built into your browser</strong> (Gemini Nano). Your message is checked <strong>on your device</strong> and is never sent anywhere.</p>
+        <p>If your browser can't do that, the message is sent to Google's Gemini AI to be checked (through Firebase, or through ScamEye's own backup server). If the AI isn't available, ScamEye uses a simple keyword check that also runs on your device.</p>
+        <p>The badge on each result shows which one was used. Please don't paste your own PIN, passwords or card numbers.</p>
+      </details>
+      <p id="ai-status" class="hint" aria-live="polite"></p>
     </section>
 
     <!-- 3. Loading line (shown for 1 second) -->
@@ -128,6 +137,7 @@
   <!-- Order matters: examples and rules first, then the app that uses them -->
   <script src="examples.js"></script>
   <script src="rules.js"></script>
+  <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
