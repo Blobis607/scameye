@@ -25,16 +25,16 @@ How it works in `app.js`:
 
 1. The Firebase JS SDK (v13.4.0) is loaded as ES modules straight from Google's official CDN (`www.gstatic.com/firebasejs/...`). There is no build step and no npm.
 2. A model is created with `getGenerativeModel(ai, { mode: InferenceMode.PREFER_ON_DEVICE, ... })`. Firebase uses Gemini Nano if Chrome has it ready, and the cloud model if not.
-3. Both models are given the same safety instructions and the same **JSON schema**, so they must answer in ScamEye's result shape:
-   - cloud: `responseMimeType: "application/json"` + `responseSchema`
-   - on-device: `promptOptions.responseConstraint`. The instructions go in `initialPrompts`, because the on-device model doesn't read `systemInstruction`.
+3. Both models follow the same safety rules and are forced to answer in a **JSON schema**:
+   - cloud: the full result shape, via `responseMimeType: "application/json"` + `responseSchema`.
+   - on-device: a **tiny** schema via `promptOptions.responseConstraint`: `verdict`, `confidence`, up to 3 `flags` (exact phrases from the message) and up to 3 `reasons` codes (`otp_or_pin`, `wrong_transfer`, `impersonation`, `upfront_fee`, `account_threat`, `suspicious_link`, `prize`, `investment`, `job_offer`, `money_request`, `urgency`, `secrecy`). Gemini Nano writes slowly on many laptops (a full answer took ~45 s, a tiny one ~2 s), so `app.js` builds the English + Pidgin explanation and the next steps itself from a lookup table (wording from `rules.js`). The user sees the same kind of result as a cloud answer. The short instructions go in `initialPrompts`, because the on-device model doesn't read `systemInstruction`.
 4. `response.inferenceSource` tells us where the answer came from, which picks the badge.
 5. **Warm session.** The Firebase SDK normally builds a new Gemini Nano session for every request. That means re-reading the instructions each time, plus a ~40-second cold load the first time. Instead, ScamEye creates **one** session when the page opens, runs one practice prompt, and gives each check a quick copy (`session.clone()`, a few milliseconds) through Firebase's on-device path. The status line shows "⏳ Warming up on-device AI…" and then "🔒 On-device AI is ready". If you click Check during warm-up, that check goes straight to the cloud.
 6. **Separate time limits:**
 
    | Step | Time limit |
    |---|---|
-   | On-device (only once warm) | 10 s |
+   | On-device (only once warm) | 15 s |
    | Firebase cloud (`ONLY_IN_CLOUD`) | 12 s |
    | Backup server (`POST /api/check`) | 15 s, or 23 s if Firebase isn't set up |
    | `rules.js` | — (last resort) |
