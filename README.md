@@ -29,9 +29,18 @@ How it works in `app.js`:
    - cloud: `responseMimeType: "application/json"` + `responseSchema`
    - on-device: `promptOptions.responseConstraint`. The instructions go in `initialPrompts`, because the on-device model doesn't read `systemInstruction`.
 4. `response.inferenceSource` tells us where the answer came from, which picks the badge.
-5. In "prefer on-device" mode, Firebase does **not** retry in the cloud if the on-device answer fails. So if that answer is broken or invalid, ScamEye asks a second, **cloud-only** model. Together these get up to 20 seconds.
-6. If Firebase isn't configured, fails to load or doesn't answer, ScamEye sends the message to its own server (`POST /api/check`). The server waits up to 15 seconds, or 23 seconds if Firebase was skipped. If that fails too, it uses `rules.js`. Every AI answer, from any source, goes through the same double-check.
-7. Chrome only allows the Gemini Nano download after the user taps or types, so `initializeDeviceModel()` is called on the first tap or key press. While it downloads, checks use the cloud.
+5. **Warm session.** The Firebase SDK normally builds a new Gemini Nano session for every request. That means re-reading the instructions each time, plus a ~40-second cold load the first time. Instead, ScamEye creates **one** session when the page opens, runs one practice prompt, and gives each check a quick copy (`session.clone()`, a few milliseconds) through Firebase's on-device path. The status line shows "⏳ Warming up on-device AI…" and then "🔒 On-device AI is ready". If you click Check during warm-up, that check goes straight to the cloud.
+6. **Separate time limits:**
+
+   | Step | Time limit |
+   |---|---|
+   | On-device (only once warm) | 10 s |
+   | Firebase cloud (`ONLY_IN_CLOUD`) | 12 s |
+   | Backup server (`POST /api/check`) | 15 s, or 23 s if Firebase isn't set up |
+   | `rules.js` | — (last resort) |
+
+   In "prefer on-device" mode, Firebase does **not** retry in the cloud by itself, so ScamEye does it. Every AI answer goes through the same double-check, and the console (F12) logs the real reason any step failed.
+7. If Gemini Nano isn't downloaded yet, Chrome only allows the download after the user taps or types. So `initializeDeviceModel()` is called on the first tap or key press, and warm-up starts when the download finishes. Until then, checks use the cloud.
 
 ### Safety rules (for every AI answer)
 
