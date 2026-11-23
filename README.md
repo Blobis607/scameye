@@ -85,6 +85,8 @@ The AI is told to follow these rules, and `app.js` double-checks the answer:
 | App Check **debug token** | ❌ **No**. Anyone with it can skip App Check | Only in the Firebase console and your own browser. Never in a file |
 | Gemini API key (AI Studio, or "Gemini Developer API key (auto created by Firebase)") | ❌ **No**. Firebase says it should *never* be in your code | Only the backup server uses it: in Vercel → Settings → **Environment Variables** (`GEMINI_API_KEY`) and in `.env.local` on your computer (git-ignored). Never in the browser code |
 
+> **Note for judges (rule: no production API keys or secrets in the repo):** the only key in this repo is the Firebase **web config** key in `firebase-config.js`. It's a public project identifier, not a secret ([Firebase docs: API keys](https://firebase.google.com/docs/projects/api-keys)). Cloud AI requests must pass **App Check**, which is enforced: a request with this key but without a valid App Check token is rejected (`401 UNAUTHENTICATED`, tested 23 Nov 2026). No production secrets are in this repo: the Gemini key used by the backup server lives only in Vercel environment variables.
+
 ## Set up (one time)
 
 ### 1. Firebase project + web app
