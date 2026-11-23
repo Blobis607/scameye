@@ -528,22 +528,51 @@
 
     // A cloud-only model: used when on-device isn't ready or fails.
     // (In "prefer on-device" mode, Firebase does NOT retry in the cloud by itself.)
-    const cloudModel = aiMod.getGenerativeModel(service, {
-      mode: aiMod.InferenceMode.ONLY_IN_CLOUD,
-      inCloudParams: cloudParams
-    });
+    function makeCloudModel(modelName) {
+      return aiMod.getGenerativeModel(service, {
+        mode: aiMod.InferenceMode.ONLY_IN_CLOUD,
+        inCloudParams: Object.assign({}, cloudParams, { model: modelName })
+      });
+    }
 
     return {
+      app: app,
       hybridModel: hybridModel,
-      cloudModel: cloudModel,
+      cloudModel: makeCloudModel(CLOUD_MODEL),
+      makeCloudModel: makeCloudModel,
       ON_DEVICE: aiMod.InferenceSource.ON_DEVICE,
       devicePatched: devicePatched
     };
   }
 
+  /* ----- Optional: pick the cloud model name from Firebase Remote Config -----
+     Lets us switch to a newer Gemini model from the Firebase console, without
+     changing code. Runs in the background (never slows the page), waits at most
+     3 seconds, and keeps "gemini-3.5-flash-lite" if anything goes wrong. */
+  async function useRemoteCloudModel() {
+    try {
+      const rcMod = await withTimeout(loadModule(SDK + "firebase-remote-config.js"), 3000, "Remote Config load");
+      if (!(await rcMod.isSupported())) return;
+      const rc = rcMod.getRemoteConfig(ai.app);
+      rc.settings.fetchTimeoutMillis = 3000;
+      rc.defaultConfig = { cloud_model: CLOUD_MODEL };
+      await withTimeout(rcMod.fetchAndActivate(rc), 3000, "Remote Config fetch");
+      const name = rcMod.getString(rc, "cloud_model").trim();
+      if (name === CLOUD_MODEL) return;
+      if (!/^gemini-[a-z0-9.\-]+$/i.test(name)) {
+        console.warn("ScamEye: Remote Config cloud_model \"" + name + "\" doesn't look like a Gemini model, so keeping " + CLOUD_MODEL + ".");
+        return;
+      }
+      ai.cloudModel = ai.makeCloudModel(name);
+      console.info("ScamEye: cloud model set by Remote Config: " + name);
+    } catch (err) {
+      logError("Remote Config (keeping " + CLOUD_MODEL + ")", err);
+    }
+  }
+
   aiReady = setupAI().then(function (x) {
     ai = x;
-    if (ai) initDevice();
+    if (ai) { initDevice(); useRemoteCloudModel(); }
     return x;
   }, function (err) {
     logError("Firebase AI setup", err);
@@ -706,7 +735,7 @@
     });
 
     if (ready) {
-      // 1st: on-device, ONLY if the warm session is ready (10 seconds)
+      // 1st: on-device, ONLY if the warm session is ready (15 seconds)
       if (warm.state === "ready") {
         try {
           return await askModel(ai.hybridModel, text, DEVICE_MS, "on-device check");
