@@ -49,6 +49,9 @@
     { category: "won", weight: 3,
       pattern: /\b(you\s+have|you've|you)\s+(just\s+)?(won|been\s+selected|been\s+chosen)\b/gi,
       reason: "Says you won or were picked, often for something you never entered." },
+    { category: "won", weight: 3,
+      pattern: /\b(has|have)\s+(selected|chosen|picked|shortlisted)\s+you\b/gi,
+      reason: "Says an organisation picked you, often for money you never applied for." },
     { category: "won", weight: 2,
       pattern: /\bcongratulations?\b/gi,
       reason: "Surprise 'congratulations' is a common scam opener." },
@@ -74,6 +77,12 @@
     { category: "sendback", weight: 3,
       pattern: /\b(send|return|refund|transfer)\s+(it|am|the\s+money|the\s+funds?|my\s+money)\s+back\b/gi,
       reason: "Asks you to send money 'back'. Check your real balance first." },
+    { category: "sendback", weight: 3,
+      pattern: /\b(sent|transferred|paid|credited)\s+(you\s+)?(money|cash|airtime|(N|NGN|₦)\s?\d[\d,]*k?|\d[\d,]*\s*naira)\s+(\S+\s+){0,3}?by\s+mistake\b/gi,
+      reason: "Says money was sent to you by mistake. The alert is often fake." },
+    { category: "sendback", weight: 4,
+      pattern: /\b(reverse|refund)\s+(it|am|the\s+money|the\s+funds?|the\s+transaction|the\s+transfer)\b/gi,
+      reason: "Asks you to 'reverse' a payment. Check your real balance first." },
     { category: "sendback", weight: 3,
       pattern: /\bwrong\s+(transfer|transaction)\b/gi,
       reason: "The 'wrong transfer' trick." },
@@ -132,6 +141,16 @@
       en: "It offers students free money, then asks for something from you. That is a common way to steal details or collect fees.",
       pcm: "Dem dey promise students free money, then dey ask you for something. Na so dem dey take thief details or collect money.",
       step: "Confirm with your Student Affairs office or the programme's official website before you fill or pay anything."
+    },
+    lookalike: {
+      en: "It uses the name of a government agency or bank, but the link isn't their official website.",
+      pcm: "Dem use government or bank name, but the link no be dia official website.",
+      step: "Government sites in Nigeria end in .gov.ng. Type the official address yourself instead of tapping the link."
+    },
+    chain: {
+      en: "It tells you to forward it to groups or friends to get money. Real programmes never ask you to do that.",
+      pcm: "Dem say make you forward am give groups or friends before you collect money. Real programme no dey do like dat.",
+      step: "Don't forward it. Warn the group that it's a scam instead."
     },
     studentid: {
       en: "It mentions your ID or bank details for student money. Some real programmes need these, but only on their official portal.",
@@ -201,7 +220,7 @@
   };
 
   // Most serious first: the explanation talks about these first
-  const ORDER = ["student", "studentid", "sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
+  const ORDER = ["student", "lookalike", "chain", "studentid", "sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
 
   /* ---------- 4. The main check ---------- */
   function check(message) {
@@ -246,21 +265,56 @@
 
     let officialIdRequest = false;
 
+    // Shared helpers: website names in the message, and money amounts
+    const hosts = text.match(/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/gi) || [];
+    const officialHosts = hosts.every(function (h) { return /\.(gov|edu)\.ng$/i.test(h); });
+    const hasMoney = /(\b(N|NGN)|₦)\s?\d[\d,]*(\.\d+)?k?\b|\b\d[\d,]*\s*(naira|k)\b/i.test(text);
+
+    // Look-alike link: an official name, but the link isn't a .gov.ng website
+    const brand = text.match(/\b(FGN|FG|federal\s+government|CBN|central\s+bank|NELFUND|NERSI|N-?Power|NDDC|NIMC|JAMB|EFCC)\b/i);
+    if (brand && hosts.length > 0 && !officialHosts) {
+      const act = /\b(apply|register|claim|confirm|verify|activate|update|login|log\s+in|enter|get\s+yours|eligibility)\b/i.test(text);
+      score += act ? 7 : 3;
+      found.lookalike = true;
+      addFlag(brand[0], "Uses an official name, but the link isn't an official .gov.ng website.");
+    }
+
+    // Chain message: forward it to groups or friends to get money
+    const chain = text.match(/\b(share|forward|send)\s+(it\s+|this\s+|the\s+)?(link\s+|message\s+)?(to|with)\s+(\d+|five|ten|all|your)\s+(whats\s?app\s+)?(groups?|friends|contacts|people|family)\b/i);
+    if (chain) {
+      score += hasMoney ? 7 : 2;
+      found.chain = true;
+      addFlag(chain[0], "Real programmes never ask you to forward a message to get paid.");
+    }
+
     // Student scam pack: a BAIT (free student money) plus an ASK
-    if (/\b(empowerment|bursary|bursaries|scholarships?|grants?|palliative)\b/i.test(text)) {
+    if (/\b(empowerment|bursary|bursaries|scholarships?|grants?|palliatives?|NERSI|NELFUND|N-?Power|student\s+loans?)\b/i.test(text) ||
+        /\b(selected|chosen|shortlisted)\s+(you\s+)?(to\s+receive|for)\b/i.test(text) ||
+        /((\b(N|NGN)|₦)\s?\d[\d,]*k?|\b\d[\d,]*\s*naira)\s+(for|to)\s+(every|all|each)?\s*(students?|nigerians|youths?)\b/i.test(text)) {
       // Ignore only the advice sentence ("Never pay..."), not the whole message
       // (it stops early if a new command follows, like "don't tell anyone, pay...")
       const rest = text.replace(/\b(never|do\s+not|don'?t|no\s+need\s+to|not\s+required\s+to)\s+(pay|send|share|give|disclose)\b(?:(?!(?:,|\bbut\b)\s*(?:(?:just|only|kindly|please)\s+)?(?:pay|send|share|give|click|fill|drop)\b)[^.!?;\n])*/gi, " ");
       const asks = [
-        { points: 7, pattern: /\b(processing fee|registration fee|pay\s+(N|NGN|₦)\s?[\d,]+)/i,
+        { points: 7, pattern: /\b(processing|registration|activation|withdrawal)\s+fee\b|\b(pay|send|transfer)\s+(a\s+token\s+of\s+)?((N|NGN|₦)\s?\d[\d,]*k?|\d[\d,]*\s*(naira|k)\b)/i,
           reason: "Free student money that asks you to pay first." },
-        { points: 7, pattern: /\b(BVN|NIN|bank details|account number)\b/i,
+        { points: 7, pattern: /\b(BVN|NIN|bank details|account (number|details)|acct\s*(no|number|details)?)\b/i,
           reason: "Student money plus your bank or ID details. Only enter these on the official portal." },
-        { points: 4, pattern: /\b(personal details|personal information)\b/i,
+        { points: 4, pattern: /\b(personal details|personal information)\b|\b(enter|fill|submit)\s+(in\s+)?(your\s+)?details\b/i,
           reason: "Free student money that asks for your personal details." },
-        { points: 3, pattern: /\bshare\s+(this\s+)?(to|with)\s+\d+\s+(groups?|friends|people|contacts)\b/i,
+        { points: 4, pattern: /\b(check|confirm|verify)\s+(your\s+)?eligibility\b|\bactivate\s+(your\s+)?wallet\b|\bhuman\s+verification\b/i,
+          reason: "Asks you to 'confirm' or 'activate' before you get the money." },
+        { points: 7, pattern: /\b(message|text|chat|dm|inbox)\s+(me|us)\b(\s+\S+){0,2}\s+(on|via)\s+(messenger|whats\s?app|telegram|facebook)\b|\b(send|chat)\s+(me|us)\s+a\s+message\s+(on|via)\s+\S+|\b(dm|inbox)\s+(me|us)\b/i,
+          reason: "Real programmes don't take applications through private chats." },
+        { points: 3, pattern: /\bshare\s+(this\s+|the\s+)?(link\b|(to|with)\s+\d+\s+(groups?|friends|people|contacts)\b)/i,
           reason: "Real programmes don't ask you to forward them to get paid." }
       ];
+      if (hosts.length > 0 && !officialHosts && !found.lookalike) {
+        score += 3;
+        found.student = true;
+        addFlag(hosts.filter(function (h) { return !/\.(gov|edu)\.ng$/i.test(h); })[0],
+          "Student money behind a link that isn't an official .gov.ng or .edu.ng website.");
+      }
+
       asks.forEach(function (ask) {
         const m = rest.match(ask.pattern);
         if (!m) return;
@@ -270,11 +324,9 @@
       });
 
       // ID details on an official portal: be careful, but don't shout "scam"
-      const hosts = text.match(/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/gi) || [];
-      const officialHosts = hosts.every(function (h) { return /\.(gov|edu)\.ng$/i.test(h); });
       const pointsToPortal = /\bportal\b/i.test(rest) || hosts.length > 0;
-      const asksId = /\b(BVN|NIN|bank details|account number)\b/i.test(rest);
-      const danger = /\b(pay|fee|send|reply|drop|forward|whats\s?app|dm|inbox|PIN|OTP|CVV|password)\b/i.test(rest);
+      const asksId = /\b(BVN|NIN|bank details|account (number|details)|acct)\b/i.test(rest);
+      const danger = /\b(pay|fee|send|reply|drop|forward|whats\s?app|messenger|telegram|dm|inbox|PIN|OTP|CVV|password)\b/i.test(rest);
       const onlyMildSigns = Object.keys(found).every(function (c) {
         return c === "student" || c === "sensitive" || c === "urgency";
       });
