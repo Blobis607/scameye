@@ -810,11 +810,15 @@
     if (warm.state !== "ready") console.warn("ScamEye test: on-device AI is not ready yet (" + warm.state + "), so these checks may use the cloud.");
     const rows = [];
     for (let i = 0; i < TEST_MESSAGES.length; i++) {
+      const quickStart = performance.now();
+      const quick = window.ScamEyeRules.check(TEST_MESSAGES[i]);
+      const quickMs = Math.round(performance.now() - quickStart);
       const started = Date.now();
       try {
         const r = await checkMessage(TEST_MESSAGES[i]);
         rows.push({
           message: TEST_MESSAGES[i].slice(0, 40) + "…",
+          quick: quick.verdict + " in " + quickMs + " ms",
           verdict: r.verdict + " (" + r.confidence + ")",
           flags: r.red_flags.map(function (f) { return f.text; }).join(" | ") || "(none)",
           source: r.source,
@@ -845,32 +849,41 @@
     stopSpeaking();
     unlockVoice();   // must happen during the tap, so the clip can play later
 
-    // Show the loading line for 1 second
-    els.result.hidden = true;
-    els.loading.hidden = false;
-    els.checkBtn.disabled = true;
+    // 1. Instant answer: the quick check (rules.js) runs on this device in milliseconds
+    const run = ++checkRun;              // if a newer check starts, this one's AI answer is ignored
+    const t0 = performance.now();
+    const quick = window.ScamEyeRules.check(text);
+    quick.source = "quick";
+    els.loading.hidden = true;
+    showResult(text, quick, { quick: true });
+    const tQuick = performance.now();
 
+    // 2. Then the AI double-checks (same order as before: device → cloud → server → basic)
     let result;
     try {
-      const both = await Promise.all([checkMessage(text), wait(1000)]);
-      result = both[0];
+      result = await checkMessage(text);
     } catch (err) {
-      els.loading.hidden = true;
-      els.checkBtn.disabled = false;
-      showError(err instanceof UserError ? err.message : "Sorry, something went wrong. Please try again.");
-      els.message.focus();
-      return;
+      if (run !== checkRun) return;
+      showError(err instanceof UserError ? err.message : "Sorry, the AI check didn't finish. The quick check is shown.");
+      result = window.ScamEyeRules.check(text);   // keep the quick answer, marked as a basic check
     }
+    if (run !== checkRun) return;           // the user checked another message meanwhile
 
-    els.loading.hidden = true;
-    els.checkBtn.disabled = false;
-    showResult(text, result);
+    if (result.verdict !== quick.verdict) stopSpeaking();
+    showResult(text, result, { update: true });
+    const tEnd = performance.now();
+    console.info("ScamEye timing: quick check " + Math.round(tQuick - t0) + " ms, AI answer (" + result.source + ") " +
+      ((tEnd - tQuick) / 1000).toFixed(1) + " s, total " + ((tEnd - t0) / 1000).toFixed(1) + " s.");
   }
+  let checkRun = 0;
 
   function showError(msg) { els.error.textContent = msg; }
 
   /* ---------- 4. Showing the result ---------- */
-  function showResult(text, result) {
+  // opts.quick: the instant rules answer while the AI is still working
+  // opts.update: the AI's answer replacing the quick one (don't jump the page again)
+  function showResult(text, result, opts) {
+    opts = opts || {};
     currentResult = result;
     currentMessage = text;
     const v = result.verdict;
@@ -882,7 +895,8 @@
     els.confidence.textContent = "Confidence: " + (CONFIDENCE_TEXT[result.confidence] || "Low");
 
     // Badge: where the check ran
-    els.badge.textContent = result.source === "device" ? "🔒 Checked on your device"
+    els.badge.textContent = result.source === "quick" ? "⚡ Quick check · AI is double-checking…"
+                          : result.source === "device" ? "🔒 Checked on your device"
                           : result.source === "cloud" ? "☁️ Cloud AI"
                           : result.source === "server" ? "☁️ Cloud AI (backup server)"
                           : "Basic check";
@@ -905,12 +919,14 @@
     els.copyStatus.textContent = "";
     els.result.hidden = false;
 
-    // Move focus to the verdict so screen readers announce it
-    els.verdictTitle.focus();
-    els.result.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!opts.update) {
+      // Move focus to the verdict so screen readers announce it
+      els.verdictTitle.focus();
+      els.result.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 
-    // Play the recorded voice clip
-    playVerdictClip(v);
+    // Play the recorded voice clip once, for the final answer only
+    if (!opts.quick) playVerdictClip(v);
   }
 
   /* Show the message again, with each red flag wrapped in a <mark>.
