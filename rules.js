@@ -128,6 +128,11 @@
      One sentence per kind of trick, in English and Pidgin,
      plus a "what to do" tip. */
   const INFO = {
+    student: {
+      en: "It offers students free money, then asks for something from you. That is a common way to steal details or collect fees.",
+      pcm: "Dem dey promise students free money, then dey ask you for something. Na so dem dey take thief details or collect money.",
+      step: "Confirm with your Student Affairs office or the programme's official website before you fill or pay anything."
+    },
     sensitive: {
       en: "It asks for secret details like your BVN, PIN, OTP or password. Real banks never ask for these by SMS or WhatsApp.",
       pcm: "Dem dey ask for your secret things like BVN, PIN, OTP or password. Real bank no go ever ask you for dem for SMS or WhatsApp.",
@@ -191,7 +196,7 @@
   };
 
   // Most serious first: the explanation talks about these first
-  const ORDER = ["sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
+  const ORDER = ["student", "sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
 
   /* ---------- 4. The main check ---------- */
   function check(message) {
@@ -233,6 +238,27 @@
         addFlag(url, problem);
       }
     });
+
+    // Student scam pack: a BAIT (free student money) plus an ASK
+    if (/\b(empowerment|bursary|bursaries|scholarships?|grants?)\b/i.test(text)) {
+      // Ignore only the advice sentence ("Never pay..."), not the whole message
+      const rest = text.replace(/\b(never|do\s+not|don'?t)\s+(pay|send|share|give|disclose)\b[^.!?\n]*/gi, " ");
+      const asks = [
+        { points: 7, pattern: /\b(BVN|NIN|bank details|account number|processing fee|registration fee|pay\s+(N|NGN|₦)\s?[\d,]+)/i,
+          reason: "Free student money that asks for your money, bank or ID details." },
+        { points: 4, pattern: /\b(personal details|personal information)\b/i,
+          reason: "Free student money that asks for your personal details." },
+        { points: 3, pattern: /\bshare\s+(this\s+)?(to|with)\s+\d+\s+(groups?|friends|people|contacts)\b/i,
+          reason: "Real programmes don't ask you to forward them to get paid." }
+      ];
+      asks.forEach(function (ask) {
+        const m = rest.match(ask.pattern);
+        if (!m) return;
+        score += ask.points;
+        found.student = true;
+        addFlag(m[0], ask.reason);
+      });
+    }
 
     // c) Points -> verdict
     let verdict, confidence;
