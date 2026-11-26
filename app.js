@@ -660,6 +660,38 @@
     };
   }
 
+  /* ----- 3d. Safety net: cloud answers also listen to rules.js -----
+     The on-device path already combines the AI with rules.js. Cloud and
+     server answers now do the same: the more serious verdict wins, and
+     the rules' red flags are added. The AI can never lower a rules warning. */
+  function addRulesSafetyNet(result, text) {
+    const RANK = { safe: 0, suspicious: 1, scam: 2 };
+    const rules = window.ScamEyeRules.check(text);
+    const aiVerdict = result.verdict;
+    if (RANK[rules.verdict] > RANK[aiVerdict]) {
+      // The rules found something the AI missed: use the rules' verdict and words
+      result.verdict = rules.verdict;
+      result.confidence = rules.confidence;
+      result.explanation_en = rules.explanation_en;
+      result.explanation_pcm = rules.explanation_pcm;
+      result.next_steps = rules.next_steps;
+    } else if (aiVerdict === "scam" && rules.verdict === "scam") {
+      result.confidence = "high";   // both agree
+    }
+    // Red flags: the AI's first, then the rules' ones (only if the rules saw danger), no repeats
+    if (rules.verdict !== "safe") {
+      const seen = {};
+      result.red_flags = result.red_flags.concat(rules.red_flags).filter(function (f) {
+        const key = f.text.trim().toLowerCase();
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      }).slice(0, 12);
+    }
+    console.info("ScamEye: " + result.source + " AI said " + aiVerdict + ", rules.js said " + rules.verdict + " → " + result.verdict + ".");
+    return result;
+  }
+
   // Give up waiting after "ms". If the slow step finishes (or fails) later,
   // the console still says what really happened, so we can find the cause.
   function withTimeout(promise, ms, label) {
@@ -695,6 +727,7 @@
     const parsed = JSON.parse(raw);
     const result = cleanResult(onDevice ? expandDeviceAnswer(parsed, text) : parsed, text);
     result.source = onDevice ? "device" : "cloud";
+    if (!onDevice) addRulesSafetyNet(result, text);   // on-device already uses rules.js
     console.info("ScamEye: answered by " + result.source + " in " + ((Date.now() - started) / 1000).toFixed(1) + "s.");
     return result;
   }
@@ -718,7 +751,7 @@
       if (!res.ok) throw new Error("Server not available: " + res.status);
       const result = cleanResult(await res.json(), text);   // same double-check as the other AIs
       result.source = "server";
-      return result;
+      return addRulesSafetyNet(result, text);
     } finally {
       if (timer) clearTimeout(timer);
     }
