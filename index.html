@@ -64,10 +64,21 @@
         <p>If your browser can't do that, the message is sent to Google's Gemini AI to be checked (through Firebase, or through ScamEye's own backup server). If the AI isn't available, ScamEye uses a simple keyword check that also runs on your device.</p>
         <p>The badge on each result shows which one was used. Please don't paste your own PIN, passwords or card numbers.</p>
       </details>
+
+      <!-- Responsible AI: how ScamEye decides -->
+      <details class="privacy-note">
+        <summary>🧭 How ScamEye decides (Responsible AI)</summary>
+        <p><strong>Two checks, not one.</strong> Quick rules, built from real Nigerian scam warnings, answer instantly. Then an AI (Google's Gemini) reads the whole message. The more serious answer wins: the AI can raise a warning, but it can never lower one.</p>
+        <p><strong>Private first.</strong> When your browser can, the AI runs on your device. The cloud is only a backup, and the badge always shows which was used.</p>
+        <p><strong>It shows its reasons.</strong> Every highlighted red flag is the exact words from your message. If the AI points to words that aren't there, ScamEye drops them.</p>
+        <p><strong>The message can't give orders.</strong> ScamEye tells the AI to treat what you paste as text to check, never as instructions. A clever scam could still confuse the AI, which is why the rules check too.</p>
+        <p><strong>Never "100% safe".</strong> Even a safe result reminds you to stay careful.</p>
+        <p><strong>Honest limits.</strong> ScamEye can be wrong, and it works best in English and Pidgin. To be careful, some genuine notices (like an official student loan portal asking for your NIN) show as "Suspicious". When in doubt, contact the organisation on a number or website you already trust.</p>
+      </details>
       <p id="ai-status" class="hint" aria-live="polite"></p>
     </section>
 
-    <!-- 3. Loading line (shown for 1 second) -->
+    <!-- 3. Loading line (not used now: the quick check shows straight away) -->
     <p id="loading" class="loading" role="status" hidden>
       <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
       Reading the message like a careful friend…
