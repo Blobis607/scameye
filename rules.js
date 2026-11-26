@@ -240,7 +240,7 @@
     });
 
     // Student scam pack: a BAIT (free student money) plus an ASK
-    if (/\b(empowerment|bursary|bursaries|scholarships?|grants?)\b/i.test(text)) {
+    if (/\b(empowerment|bursary|bursaries|scholarships?|grants?|palliative)\b/i.test(text)) {
       // Ignore only the advice sentence ("Never pay..."), not the whole message
       const rest = text.replace(/\b(never|do\s+not|don'?t)\s+(pay|send|share|give|disclose)\b[^.!?\n]*/gi, " ");
       const asks = [
