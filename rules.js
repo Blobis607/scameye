@@ -133,6 +133,11 @@
       pcm: "Dem dey promise students free money, then dey ask you for something. Na so dem dey take thief details or collect money.",
       step: "Confirm with your Student Affairs office or the programme's official website before you fill or pay anything."
     },
+    studentid: {
+      en: "It mentions your ID or bank details for student money. Some real programmes need these, but only on their official portal.",
+      pcm: "Dem mention your ID or bank details for student money. Some real programme need am, but na only for dia official portal.",
+      step: "Type the official website address yourself. Never send your ID or bank details by chat, SMS or a forwarded link."
+    },
     sensitive: {
       en: "It asks for secret details like your BVN, PIN, OTP or password. Real banks never ask for these by SMS or WhatsApp.",
       pcm: "Dem dey ask for your secret things like BVN, PIN, OTP or password. Real bank no go ever ask you for dem for SMS or WhatsApp.",
@@ -196,7 +201,7 @@
   };
 
   // Most serious first: the explanation talks about these first
-  const ORDER = ["student", "sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
+  const ORDER = ["student", "studentid", "sensitive", "sendback", "impersonation", "fee", "block", "link", "won", "investment", "urgency", "agent", "secrecy", "emotional"];
 
   /* ---------- 4. The main check ---------- */
   function check(message) {
@@ -239,13 +244,18 @@
       }
     });
 
+    let officialIdRequest = false;
+
     // Student scam pack: a BAIT (free student money) plus an ASK
     if (/\b(empowerment|bursary|bursaries|scholarships?|grants?|palliative)\b/i.test(text)) {
       // Ignore only the advice sentence ("Never pay..."), not the whole message
-      const rest = text.replace(/\b(never|do\s+not|don'?t)\s+(pay|send|share|give|disclose)\b[^.!?\n]*/gi, " ");
+      // (it stops early if a new command follows, like "don't tell anyone, pay...")
+      const rest = text.replace(/\b(never|do\s+not|don'?t|no\s+need\s+to|not\s+required\s+to)\s+(pay|send|share|give|disclose)\b(?:(?!(?:,|\bbut\b)\s*(?:(?:just|only|kindly|please)\s+)?(?:pay|send|share|give|click|fill|drop)\b)[^.!?;\n])*/gi, " ");
       const asks = [
-        { points: 7, pattern: /\b(BVN|NIN|bank details|account number|processing fee|registration fee|pay\s+(N|NGN|₦)\s?[\d,]+)/i,
-          reason: "Free student money that asks for your money, bank or ID details." },
+        { points: 7, pattern: /\b(processing fee|registration fee|pay\s+(N|NGN|₦)\s?[\d,]+)/i,
+          reason: "Free student money that asks you to pay first." },
+        { points: 7, pattern: /\b(BVN|NIN|bank details|account number)\b/i,
+          reason: "Student money plus your bank or ID details. Only enter these on the official portal." },
         { points: 4, pattern: /\b(personal details|personal information)\b/i,
           reason: "Free student money that asks for your personal details." },
         { points: 3, pattern: /\bshare\s+(this\s+)?(to|with)\s+\d+\s+(groups?|friends|people|contacts)\b/i,
@@ -258,6 +268,22 @@
         found.student = true;
         addFlag(m[0], ask.reason);
       });
+
+      // ID details on an official portal: be careful, but don't shout "scam"
+      const hosts = text.match(/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/gi) || [];
+      const officialHosts = hosts.every(function (h) { return /\.(gov|edu)\.ng$/i.test(h); });
+      const pointsToPortal = /\bportal\b/i.test(rest) || hosts.length > 0;
+      const asksId = /\b(BVN|NIN|bank details|account number)\b/i.test(rest);
+      const danger = /\b(pay|fee|send|reply|drop|forward|whats\s?app|dm|inbox|PIN|OTP|CVV|password)\b/i.test(rest);
+      const onlyMildSigns = Object.keys(found).every(function (c) {
+        return c === "student" || c === "sensitive" || c === "urgency";
+      });
+      officialIdRequest = asksId && pointsToPortal && officialHosts && !danger && onlyMildSigns;
+      if (officialIdRequest) {
+        delete found.student;
+        delete found.sensitive;
+        found.studentid = true;
+      }
     }
 
     // c) Points -> verdict
@@ -272,6 +298,11 @@
       verdict = "safe";
       // A keyword check can never be sure, so "safe" is never "high"
       confidence = text.trim().length < 40 ? "low" : "medium";
+    }
+
+    if (officialIdRequest) {
+      verdict = "suspicious";
+      confidence = "low";
     }
 
     // d) Build the explanation and next steps
