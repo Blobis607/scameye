@@ -75,6 +75,7 @@ The AI is told to follow these rules, and `app.js` double-checks the answer:
 - **On-device checks (🔒):** the message stays on your computer. Gemini Nano runs inside Chrome.
 - **Cloud checks (☁️):** the message is sent to Google's Gemini API, through Firebase or through ScamEye's backup server. The server never logs or stores it. On the free tier, Google may use that data to improve its products, so don't paste messages that contain your own private details.
 - **Basic checks:** run on your device.
+- **Page visits:** counted with Vercel Web Analytics, which uses no cookies and never sees the message you paste. Visitors are counted with an anonymous hash that Vercel discards after 24 hours.
 
 ## What is safe to make public?
 
