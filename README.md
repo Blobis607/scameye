@@ -149,6 +149,31 @@ To test the **backup server**, on the live site: open DevTools → **Network** �
 
 To test the **basic fallback**, block the network in DevTools (Network → Offline) after the page loads, or double-click `index.html`. The badge says **Basic check**.
 
+## Rule tests
+
+Run `node tests/rules.test.js` (needs Node.js, nothing to install). It checks `rules.js` against 50 made-up messages and the 6 example buttons:
+
+- scam messages written like current public warnings (fake ₦50,000 NERSI grants, fake NELFUND portals, chain messages, "activation" fees)
+- genuine-looking messages that must **not** be called a scam (official `.gov.ng` / `.edu.ng` portals, "no payment is required" notices)
+
+It prints `56 / 56 passed`, or lists what failed.
+
+## Hackathon submissions
+
+| Hackathon | Release | What was new |
+|---|---|---|
+| SafeSpace Hacks | `v1-safespace` | ScamEye v1: paste a message, verdict, red flags, English/Pidgin, voice |
+| #BuildHybridAI | `v2-hybridai` | Firebase AI Logic hybrid inference (on-device Gemini Nano + cloud), App Check, "Checked on your device" badge |
+| SLAY HACKS | `v3-slayhacks` | Student scam pack, fewer false alarms, rules safety net for every AI answer, instant quick check, Responsible AI panel, visit counting, rule tests |
+
+**New for SLAY HACKS (v3-slayhacks):**
+- **Student scam pack** in `rules.js`, based on current public warnings: look-alike links (an official name like NELFUND or FGN, but a link that doesn't end in `.gov.ng`), chain messages ("share to 5 WhatsApp groups"), "activation" fees, and requests for BVN, NIN or account details.
+- **Fewer false alarms:** a genuine notice pointing to an official `.gov.ng` or `.edu.ng` portal shows as **Suspicious** with "use only the official portal" advice, not **Likely scam**.
+- **Rules safety net for every AI answer:** cloud and backup-server answers are now combined with `rules.js` too (before, only on-device answers were). The more serious verdict wins: the AI can raise a warning but never lower one.
+- **Instant quick check:** the rules verdict appears at once ("⚡ Quick check · AI is double-checking…"), then the AI's answer replaces it. No extra data is sent anywhere.
+- **"How ScamEye decides (Responsible AI)"** panel on the page, and privacy-friendly visit counting (Vercel Web Analytics).
+- **Rule tests:** `tests/rules.test.js`.
+
 ## Limitations
 
 - **On-device needs desktop Chrome 139+** with the flag turned on. Most phones in Nigeria will use the cloud AI or the basic check.
@@ -158,6 +183,8 @@ To test the **basic fallback**, block the network in DevTools (Network → Offli
 - The cloud AI uses the free Gemini Developer API tier, which has daily limits. When it runs out, ScamEye uses the basic check.
 - The AI can still make mistakes, and the keyword check can miss new or clever scams.
 - It works best on English and Pidgin messages.
+- To stay careful, some genuine notices show as **Suspicious** (for example an official portal asking for your NIN, or a news link that mentions NELFUND). A scam that says "enter your BVN on our portal" with no link and no other warning signs also gets only **Suspicious**.
+- The quick check can change when the AI answers (for example from Suspicious to Likely scam).
 - ScamEye gives advice, not a guarantee. When in doubt, call your bank on the number on your card. Never share your PIN, OTP or BVN.
 
 ## Features
@@ -165,6 +192,8 @@ To test the **basic fallback**, block the network in DevTools (Network → Offli
 - Big paste box and a "Check message" button
 - Six example messages to try, including a tricky one with no obvious scam words
 - Hybrid AI: on-device Gemini Nano → Firebase cloud Gemini → backup server → keyword check, with a badge showing which was used
+- **Instant quick check**, then the AI double-checks and updates the result
+- **Student scam pack**: fake grants, fake NELFUND/NERSI links, chain messages, "activation" fees
 - Clear red / amber / green verdict with a confidence level
 - Red flags highlighted inside the message. Tap one to see why it's a problem
 - Explanation in **English** or **Nigerian Pidgin**
@@ -172,6 +201,7 @@ To test the **basic fallback**, block the network in DevTools (Network → Offli
 - "Copy warning" button to share a warning on WhatsApp
 - Verdict spoken in a recorded voice (`audio/` folder), with a sound on/off button
 - "Read explanation aloud" using the phone's built-in voice (prefers a Nigerian English voice)
+- "How ScamEye decides (Responsible AI)" panel
 - Light and dark mode, big text, works with a keyboard and screen readers
 
 ## Built with
@@ -192,7 +222,8 @@ To test the **basic fallback**, block the network in DevTools (Network → Offli
 | `style.css` | Colours, sizes, light/dark mode |
 | `app.js` | Makes the page work: hybrid AI check, answer validation, fallbacks, showing results |
 | `firebase-config.js` | Public Firebase web config + reCAPTCHA site key (no secrets) |
-| `rules.js` | Keyword checker (final fallback) |
+| `rules.js` | Nigerian scam rules: the instant quick check, the safety net for every AI answer, and the final fallback |
+| `tests/rules.test.js` | Rule tests: `node tests/rules.test.js` |
 | `examples.js` | The six practice messages |
 | `audio/` | Recorded voice clips (`scam.mp3`, `suspicious.mp3`, `safe.wav`) |
 | `api/check.js` | **Backup server** (the Week 2 version): a Vercel function that calls the Gemini API with a secret key kept on the server. Used when Firebase isn't set up or fails |
