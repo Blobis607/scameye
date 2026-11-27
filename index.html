@@ -63,6 +63,7 @@
         <p>On a computer with a recent Google Chrome, ScamEye uses a small AI <strong>built into your browser</strong> (Gemini Nano). Your message is checked <strong>on your device</strong> and is never sent anywhere.</p>
         <p>If your browser can't do that, the message is sent to Google's Gemini AI to be checked (through Firebase, or through ScamEye's own backup server). If the AI isn't available, ScamEye uses a simple keyword check that also runs on your device.</p>
         <p>The badge on each result shows which one was used. Please don't paste your own PIN, passwords or card numbers.</p>
+        <p>We count page visits with Vercel Web Analytics. It uses no cookies and never sees your message.</p>
       </details>
 
       <!-- Responsible AI: how ScamEye decides -->
@@ -150,5 +151,9 @@
   <script src="rules.js"></script>
   <script src="firebase-config.js"></script>
   <script src="app.js"></script>
+
+  <!-- Vercel Web Analytics: counts page visits only (no cookies, no message content) -->
+  <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
